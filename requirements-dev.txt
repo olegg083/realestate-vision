@@ -7,5 +7,9 @@ pandas
 matplotlib
 seaborn
 
+# --- Тесты ---
+pytest
+httpx
+
 # --- Сравнение с CLIP (src.evaluate_retrieval) ---
 open_clip_torch

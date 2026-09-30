@@ -83,8 +83,10 @@ flowchart LR
 │   ├── prepare_data.py  # разбиение датасета на train/val/test
 │   ├── train.py         # baseline -> fine-tuning, оценка на test
 │   ├── build_index.py   # эмбеддинги базы + FAISS индекс + метаданные
-│   └── evaluate_retrieval.py  # Precision@K / mAP@K для разных энкодеров
-├── api/main.py          # FastAPI: POST /search
+│   ├── evaluate_retrieval.py  # Precision@K / mAP@K для разных энкодеров
+│   └── search.py        # поисковый движок: классификация + FAISS + фильтры
+├── api/main.py          # FastAPI: /search, /health, /images
+├── tests/               # тесты API
 ├── app/streamlit_app.py # веб-интерфейс
 ├── notebooks/           # EDA и анализ результатов
 ├── data/                # (не в git) raw и processed изображения
@@ -125,8 +127,46 @@ streamlit run app/streamlit_app.py
 
 Интерфейс откроется на http://localhost:8501, Swagger API доступен на http://localhost:8000/docs.
 
-Пример запроса к API:
+Адрес API для интерфейса задаётся переменной окружения `API_URL` (по умолчанию `http://127.0.0.1:8000`).
+
+## API
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `POST` | `/search` | Поиск похожих объектов по фото |
+| `GET` | `/health` | Статус сервиса и размер индекса |
+| `GET` | `/images/{path}` | Фотографии объектов из базы |
+
+Параметры `/search`: `file` — изображение (JPEG, PNG или WebP, до 10 МБ), `k` — число результатов (1–50, по умолчанию 5). Необязательные фильтры: `room_type`, `min_price`, `max_price`, `rooms`.
 
 ```bash
-curl -X POST http://localhost:8000/search -F "file=@kitchen.jpg"
+curl -X POST "http://localhost:8000/search?k=3&room_type=kitchen&max_price=20" -F "file=@kitchen.jpg;type=image/jpeg"
 ```
+
+Пример ответа (значения условные):
+
+```json
+{
+  "query_room": {"room_type": "kitchen", "confidence": 0.94},
+  "results": [
+    {
+      "similarity_score": 0.871,
+      "image_url": "http://localhost:8000/images/train/kitchen/int474.jpg",
+      "apartment": {"apartment_id": "APT-00812", "image_path": "train/kitchen/int474.jpg",
+                    "room_type": "kitchen", "price_mln": 14.2, "area_sqm": 64, "rooms": 2}
+    }
+  ]
+}
+```
+
+Кроме поиска соседей, модель возвращает тип комнаты на запросе (`query_room`): голова классификатора работает поверх того же прохода backbone, так что это не требует дополнительных вычислений.
+
+Ошибки возвращаются с понятными кодами: `400` — файл не читается как изображение, `413` — файл слишком большой, `415` — неподдерживаемый формат, `422` — неверные параметры.
+
+## Тесты
+
+```bash
+pytest
+```
+
+Тесты API подменяют поисковый движок фейковым, поэтому не требуют обученной модели и работают без GPU.
