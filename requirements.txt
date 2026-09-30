@@ -1,24 +1,14 @@
-# --- Данные и математика ---
-numpy
-pandas
+# --- ML ---
+torch>=2.2,<3
+torchvision>=0.17,<1
+numpy>=1.26,<3
+Pillow>=10.0
+faiss-cpu>=1.8,<2
+scikit-learn>=1.4,<2
 
-# --- Метрики и графики ---
-matplotlib
-seaborn
-scikit-learn
-
-# --- Работа с изображениями ---
-Pillow
-
-# --- Ноутбуки ---
-jupyter
-ipykernel
-
-# --- Векторный поиск (FAISS) ---
-faiss-cpu
-
-# --- Сервер и веб-интерфейс (для следующих шагов) ---
-fastapi
-uvicorn
-python-multipart
-streamlit
+# --- Сервис ---
+fastapi>=0.110,<1
+uvicorn>=0.29,<1
+python-multipart>=0.0.9
+streamlit>=1.35,<2
+requests>=2.31,<3

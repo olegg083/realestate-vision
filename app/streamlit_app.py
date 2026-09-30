@@ -1,8 +1,9 @@
 import streamlit as st
 import requests
 from PIL import Image
-import io
-import os
+from pathlib import Path
+
+IMAGES_DIR = Path(__file__).resolve().parent.parent / "data" / "processed"
 
 # Настройка страницы
 st.set_page_config(page_title="RealEstate Vision", page_icon="🏠", layout="wide")
@@ -45,12 +46,11 @@ if uploaded_file is not None:
                         apt = res["apartment"]
                         sim = res["similarity_score"]
                         
-                        # Исправляем путь к картинке (убираем ../, так как запускаем из корня)
-                        img_path = apt["image_path"].replace("../", "")
+                        img_path = IMAGES_DIR / apt["image_path"]
                         
                         # Рисуем карточку в нужной колонке
                         with cols[idx % 3]:
-                            if os.path.exists(img_path):
+                            if img_path.exists():
                                 st.image(Image.open(img_path), use_container_width=True)
                             else:
                                 st.error("Фото не найдено на диске")

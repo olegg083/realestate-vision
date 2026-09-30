@@ -1,0 +1,11 @@
+-r requirements.txt
+
+# --- Ноутбуки и графики ---
+jupyter
+ipykernel
+pandas
+matplotlib
+seaborn
+
+# --- Сравнение с CLIP (src.evaluate_retrieval) ---
+open_clip_torch
