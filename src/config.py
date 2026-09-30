@@ -14,6 +14,11 @@ METRICS_PATH = MODELS_DIR / "metrics.json"
 HISTORY_PATH = MODELS_DIR / "history.json"
 RETRIEVAL_METRICS_PATH = MODELS_DIR / "retrieval_metrics.json"
 
+GITHUB_REPO = "olegg083/realestate-vision"
+MODELS_RELEASE_TAG = "v1.0"
+RELEASE_ARTIFACTS = [FINETUNED_WEIGHTS, FAISS_INDEX_PATH, METADATA_PATH,
+                     METRICS_PATH, HISTORY_PATH, RETRIEVAL_METRICS_PATH]
+
 CLASSES = ["bathroom", "bedroom", "dining_room", "kitchen", "livingroom"]
 NUM_CLASSES = len(CLASSES)
 EMBEDDING_DIM = 512

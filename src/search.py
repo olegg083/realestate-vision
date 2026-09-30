@@ -1,6 +1,6 @@
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 import numpy as np
 import torch
@@ -65,7 +65,7 @@ class SearchEngine:
         similarities, indices = self.index.search(embedding.astype("float32"), n_candidates)
 
         hits = []
-        for similarity, idx in zip(similarities[0], indices[0]):
+        for similarity, idx in zip(similarities[0], indices[0], strict=True):
             if idx < 0:
                 continue
             apartment = self.metadata[idx]

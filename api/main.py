@@ -80,7 +80,7 @@ def read_image(file: UploadFile) -> Image.Image:
         image = Image.open(io.BytesIO(data))
         image.load()
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError):
-        raise HTTPException(400, "Не удалось прочитать изображение")
+        raise HTTPException(400, "Не удалось прочитать изображение") from None
     return image
 
 

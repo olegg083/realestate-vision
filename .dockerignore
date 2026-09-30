@@ -1,0 +1,10 @@
+.git/
+venv/
+.venv/
+data/
+models/
+notebooks/
+tests/
+**/__pycache__/
+.pytest_cache/
+.ipynb_checkpoints/

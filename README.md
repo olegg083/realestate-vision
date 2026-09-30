@@ -1,8 +1,10 @@
 # 🏠 RealEstate Vision
 
+[![CI](https://github.com/olegg083/realestate-vision/actions/workflows/ci.yml/badge.svg)](https://github.com/olegg083/realestate-vision/actions/workflows/ci.yml)
+
 Визуальный поиск похожих квартир по фотографии комнаты. Пользователь загружает фото (кухня, спальня, ванная и т.д.), сервис находит в базе объявлений комнаты с наиболее похожим интерьером.
 
-**Стек:** PyTorch · torchvision (ResNet18) · FAISS · FastAPI · Streamlit
+**Стек:** PyTorch · torchvision (ResNet18) · FAISS · FastAPI · Streamlit · Docker · GitHub Actions
 
 ## Как это работает
 
@@ -42,8 +44,10 @@ flowchart LR
 
 | Модель | Accuracy | Macro-F1 |
 |---|---:|---:|
-| Baseline: замороженный backbone, обучается только `fc` | 76.98% | 0.761 |
-| Fine-tuning: `layer4` + `fc` | **82.61%** | **0.817** |
+| Baseline: замороженный backbone, обучается только `fc` | 80.31% | 0.794 |
+| Fine-tuning: `layer4` + `fc` | **84.40%** | **0.838** |
+
+Самые трудные классы — `dining_room` (F1 0.756) и `livingroom` (F1 0.785): на open-space фотографиях в кадре часто есть и обеденная, и гостиная зона. Лучше всего распознаются кухни (F1 0.930) и ванные (F1 0.885). Confusion matrix и примеры ошибок — в [`notebooks/02_training_analysis.ipynb`](notebooks/02_training_analysis.ipynb).
 
 После запуска `src.train` актуальные метрики сохраняются в `models/metrics.json`.
 
@@ -57,9 +61,14 @@ flowchart LR
 
 | Энкодер | P@1 | P@5 | P@10 | mAP@10 |
 |---|---:|---:|---:|---:|
-| ResNet18 (ImageNet, без дообучения) | | | | |
-| ResNet18 (fine-tuned) | | | | |
-| CLIP ViT-B/32 (zero-shot) | | | | |
+| ResNet18 (ImageNet, без дообучения) | 0.757 | 0.686 | 0.662 | 0.570 |
+| ResNet18 (fine-tuned) — **используется в сервисе** | 0.839 | 0.817 | 0.809 | 0.767 |
+| CLIP ViT-B/32 (zero-shot) | **0.885** | **0.857** | **0.834** | **0.779** |
+
+**Выводы.**
+- Fine-tuning заметно улучшает эмбеддинги для поиска: +13.1 п.п. P@5 и +19.8 п.п. mAP@10 относительно весов ImageNet. У ImageNet-модели качество быстро падает с ростом K, у дообученной почти нет — классы образуют плотные кластеры.
+- Zero-shot CLIP лучше по всем метрикам, но разрыв сокращается с ростом K: +4.6 п.п. P@1, +4.0 п.п. P@5, +1.2 п.п. mAP@10.
+- В сервисе оставлен fine-tuned ResNet18: он в ~7.5 раза меньше по параметрам (11.7 млн против ~88 млн у image-энкодера ViT-B/32) и в ~2.5 раза легче по вычислениям (1.8 против 4.4 GFLOPs) — это важно для инференса на CPU. CLIP — первый кандидат на замену, если позволят ресурсы; дополнительно он даёт поиск по текстовому описанию.
 
 Разбор результатов, t-SNE эмбеддингов и примеры выдачи — в [`notebooks/03_embeddings_and_search.ipynb`](notebooks/03_embeddings_and_search.ipynb).
 
@@ -84,10 +93,14 @@ flowchart LR
 │   ├── train.py         # baseline -> fine-tuning, оценка на test
 │   ├── build_index.py   # эмбеддинги базы + FAISS индекс + метаданные
 │   ├── evaluate_retrieval.py  # Precision@K / mAP@K для разных энкодеров
-│   └── search.py        # поисковый движок: классификация + FAISS + фильтры
+│   ├── search.py        # поисковый движок: классификация + FAISS + фильтры
+│   └── download_models.py     # скачивание весов из GitHub Release
 ├── api/main.py          # FastAPI: /search, /health, /images
 ├── tests/               # тесты API
 ├── app/streamlit_app.py # веб-интерфейс
+├── docker/              # Dockerfile для API и интерфейса
+├── docker-compose.yml
+├── .github/workflows/   # CI: ruff + pytest
 ├── notebooks/           # EDA и анализ результатов
 ├── data/                # (не в git) raw и processed изображения
 └── models/              # (не в git) веса, индекс, метаданные
@@ -110,7 +123,13 @@ pip install -r requirements.txt  # для ноутбуков: requirements-dev.t
 python -m src.prepare_data
 ```
 
-**2. Обучение и индекс.** Все команды выполняются из корня репозитория. Обучение на GPU занимает около 8 минут.
+**2. Модель.** Все команды выполняются из корня репозитория. Можно скачать готовые веса и индекс из [релиза](https://github.com/olegg083/realestate-vision/releases/tag/v1.0):
+
+```bash
+python -m src.download_models
+```
+
+Или обучить самостоятельно (на GPU около 8 минут). Для GPU сначала установите PyTorch с CUDA по инструкции с [pytorch.org](https://pytorch.org/get-started/locally/), затем остальные зависимости.
 
 ```bash
 python -m src.train
@@ -118,7 +137,13 @@ python -m src.build_index
 python -m src.evaluate_retrieval   # нужен open_clip_torch из requirements-dev.txt, либо флаг --no-clip
 ```
 
-**3. Сервис.** API и интерфейс запускаются в двух терминалах:
+**3. Сервис в Docker.** Нужны заполненные `models/` и `data/processed/`: они подключаются в контейнер как volume.
+
+```bash
+docker compose up --build
+```
+
+**3'. Сервис без Docker.** API и интерфейс запускаются в двух терминалах:
 
 ```bash
 uvicorn api.main:app --port 8000

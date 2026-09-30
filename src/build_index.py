@@ -34,7 +34,7 @@ def generate_metadata(image_paths: list[Path], room_types: list[str]) -> list[di
             "area_sqm": rng.randint(30, 120),
             "rooms": rng.choice([1, 2, 3, 4]),
         }
-        for idx, (path, room_type) in enumerate(zip(image_paths, room_types))
+        for idx, (path, room_type) in enumerate(zip(image_paths, room_types, strict=True))
     ]
 
 

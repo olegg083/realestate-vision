@@ -78,7 +78,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
         current_lr = optimizer.param_groups[0]["lr"]
         scheduler.step(val_loss)
 
-        for key, value in zip(history, (train_loss, train_acc, val_loss, val_acc, current_lr)):
+        for key, value in zip(history, (train_loss, train_acc, val_loss, val_acc, current_lr), strict=True):
             history[key].append(value)
 
         log = (f"Epoch {epoch + 1:02d}/{num_epochs:02d} [{time.time() - start:.0f}s] | "
@@ -116,11 +116,14 @@ def make_loaders(batch_size: int, num_workers: int):
     test_ds = datasets.ImageFolder(PROCESSED_DATA_DIR / "test", transform=eval_transforms)
     assert train_ds.classes == CLASSES, f"Классы в данных {train_ds.classes} не совпадают с конфигом {CLASSES}"
 
+    # На Windows воркеры стартуют через spawn и заново импортируют torch — без persistent_workers
+    # это происходит на каждой эпохе и замедляет обучение сильнее, чем ускоряет загрузку
+    loader_kwargs = dict(batch_size=batch_size, num_workers=num_workers,
+                         persistent_workers=num_workers > 0, pin_memory=torch.cuda.is_available())
     generator = torch.Generator().manual_seed(SEED)
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,
-                              num_workers=num_workers, generator=generator)
-    val_loader = DataLoader(val_ds, batch_size=batch_size, num_workers=num_workers)
-    test_loader = DataLoader(test_ds, batch_size=batch_size, num_workers=num_workers)
+    train_loader = DataLoader(train_ds, shuffle=True, generator=generator, **loader_kwargs)
+    val_loader = DataLoader(val_ds, **loader_kwargs)
+    test_loader = DataLoader(test_ds, **loader_kwargs)
     return train_loader, val_loader, test_loader
 
 
@@ -129,7 +132,7 @@ def main():
     parser.add_argument("--epochs-baseline", type=int, default=10)
     parser.add_argument("--epochs-finetune", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--num-workers", type=int, default=2)
+    parser.add_argument("--num-workers", type=int, default=0)
     args = parser.parse_args()
 
     set_seed(SEED)

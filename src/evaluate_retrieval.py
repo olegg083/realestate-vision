@@ -1,8 +1,8 @@
 """Оценка качества поиска: база = train, запросы = test, релевантен объект того же типа комнаты."""
 import argparse
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 import numpy as np
 import torch
