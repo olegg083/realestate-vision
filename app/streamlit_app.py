@@ -1,9 +1,13 @@
+import io
 import os
 
 import requests
 import streamlit as st
+from PIL import Image, ImageOps
 
 API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
+THUMBNAIL_SIZE = (360, 270)
+QUERY_IMAGE_WIDTH = 400
 ROOM_TYPES = {
     "bathroom": "Ванная",
     "bedroom": "Спальня",
@@ -16,13 +20,15 @@ st.set_page_config(page_title="RealEstate Vision", page_icon="🏠", layout="wid
 
 
 @st.cache_data(show_spinner=False)
-def fetch_image(url: str) -> bytes | None:
+def fetch_thumbnail(url: str) -> Image.Image | None:
+    """Фото в базе разного размера и пропорций: приводим к одному кадру 4:3, чтобы карточки были одинаковыми."""
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
-        return response.content
-    except requests.RequestException:
+        image = Image.open(io.BytesIO(response.content)).convert("RGB")
+    except (requests.RequestException, OSError):
         return None
+    return ImageOps.fit(image, THUMBNAIL_SIZE, Image.Resampling.LANCZOS)
 
 
 def api_error_message(response: requests.Response) -> str:
@@ -51,7 +57,7 @@ uploaded_file = st.file_uploader("Загрузите фотографию ком
 
 if uploaded_file is not None:
     st.subheader("Ваш запрос:")
-    st.image(uploaded_file, width=400)
+    st.image(uploaded_file, width=QUERY_IMAGE_WIDTH)
 
     params = {"k": k, "min_price": price_range[0], "max_price": price_range[1]}
     if room_type:
@@ -93,9 +99,9 @@ if uploaded_file is not None:
     for idx, res in enumerate(results):
         apt = res["apartment"]
         with cols[idx % 3]:
-            image_bytes = fetch_image(res["image_url"])
-            if image_bytes:
-                st.image(image_bytes, use_container_width=True)
+            thumbnail = fetch_thumbnail(res["image_url"])
+            if thumbnail:
+                st.image(thumbnail, width=THUMBNAIL_SIZE[0])
             else:
                 st.error("Фото не найдено")
 
